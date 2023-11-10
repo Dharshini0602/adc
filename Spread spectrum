@@ -1,0 +1,102 @@
+clc;clear all;close all;
+pn1=[];
+message=[1,0,1,0,1,1,0,0,1,0];
+%GENERATION OF PN SEQUENCE:
+ini=[1,0,1];
+for i=1:7
+    if i==1
+        pn1(i,:)=ini;
+    else
+        k=xor(pn1(i-1,1),pn1(i-1,3));
+        pre=[k pn1(i-1,1) pn1(i-1,2)];
+        pn1(i,:)=pre;
+    end
+end
+pn=pn1(:,3)';
+disp("PN-SEQUENCE:");
+disp(pn);
+%SPREADING MODULATION
+ds=[];t1=0:0.01:7;ori_sig=[];pn1=[];
+for i=1:length(message)
+    if message(i)==1
+        ds=[ds pn];
+        ori_sig=[ori_sig ones(1,length(t1))];
+        
+    else 
+        ds=[ds ~pn];
+        ori_sig=[ori_sig zeros(1,length(t1))];
+    end
+end
+for i=1:length(pn)
+    if pn(i)==1
+        pn1=[pn1 ones(1,length(t1))];
+    else
+        pn1=[pn1 zeros(1,length(t1))];
+    end
+end
+%DSSS-BPSK MODULATION
+f=1.5;
+t=0:0.01:1;
+c=cos(2*pi*f*t);
+modu_sig=[];carr_sig=[];pn_seq=[];
+for k=1:length(ds)
+    if(ds(k)==1)
+        modu_sig=[modu_sig cos(2*pi*f*t)];
+        pn_seq=[pn_seq ones(1,length(t))];
+
+    else
+        modu_sig=[modu_sig cos((2*pi*f*t)-pi)];
+        pn_seq=[pn_seq zeros(1,length(t))];
+
+    end
+    
+    carr_sig=[carr_sig c];
+end
+
+%BPSK DEMODULATION:
+dem=modu_sig.*carr_sig;
+rec_sig=awgn(modu_sig,15);
+dem_sig=rec_sig.*carr_sig;
+rec_1=[];
+for i=1:length(dem)
+    if (dem(i)>0)
+        rec_1=[rec_1 1];
+    else
+        rec_1=[rec_1 0];
+    end
+end
+%MESSAGE DEMODULATION:
+rec=[];
+for i=0:(7*length(t)):length(rec_1)
+   
+    if i==length(rec_1)
+        break
+    end
+    if(sum(rec_1(i+1:(i+(7*length(t)))))==(404))
+        rec=[rec ones(1,length(t1))];
+    else
+       rec=[rec zeros(1,length(t1))];
+    end
+end
+
+subplot(3,1,1);
+plot(ori_sig);title("MESSAGE SIGNAL");
+xlabel("TIME(sec)");ylabel("AMPLITUDE");
+subplot(3,1,2);
+plot(pn1);title("PN SEQUENCE");
+xlabel("TIME");ylabel("AMPLITUDE");
+subplot(3,1,3);
+plot(pn_seq);title("DSSS SIGNAL");
+xlabel("TIME");ylabel("AMPLITUDE");
+figure
+subplot(3,1,1);
+plot(modu_sig);
+title("DSSS-BPSK MODULATED SIGNAL");
+xlabel("TIME");ylabel("AMPLITUDE");
+subplot(3,1,2);
+plot(dem_sig);title("DSSS-BPSK DEMODULATED SIGNAL");
+xlabel("TIME");ylabel("AMPLITUDE");
+subplot(3,1,3);
+plot(rec);title("DEMODULATED MESSAGE SIGNAL");
+xlabel("TIME");ylabel("AMPLITUDE");
+
