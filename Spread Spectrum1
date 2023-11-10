@@ -1,0 +1,119 @@
+clc
+clear all; close all;
+t=0:100;
+message=[1 1 0 0 1 0 1];
+a = 1;b = 0;c = 0;d = 1;
+pn = [];
+for i = 1:7
+pn = [pn,d];
+d = c;
+c = b;
+b = a;
+a = xor(d,c);
+end
+t1 = 0.001428571:0.001428571:7;
+msg_sig=[];
+for i=1:length(message)
+if message(i)==1
+msg_sig=[msg_sig ones(1,length(t))];
+else
+msg_sig=[msg_sig zeros(1,length(t))]; message(i)=-1;
+end
+end
+subplot(3,3,1); plot(msg_sig); xlabel('TIME'); ylabel('AMPLITUDE'); title('MESSAGE SIGNAL'); ylim([-0.5 1.5]);
+%generation of PN sequence
+for i = 1:7
+if(message(i) == 0)
+message(i) = -1;
+end
+if(pn(i) == 0)
+pn(i) = -1;
+end
+end
+chip = [];
+for i = 1:length(pn)
+if pn(i) == 1
+chip = [chip, ones(1,700)];
+else
+chip = [chip, -ones(1,700)];
+end
+end
+PN_sig=[];
+for i=1:length(pn) if pn(i)==1
+PN_sig=[PN_sig ones(1,length(t))]; else
+PN_sig=[PN_sig zeros(1,length(t))]; pn(i)=-1;
+end
+end
+subplot(3,3,2); plot(PN_sig); xlabel('TIME'); ylabel('AMPLITUDE'); title('PN SIGNAL');
+ds=[]; PN_seq=[];
+for j=1:length(message) ds=[ds message(j).*pn]; PN_seq=[PN_seq pn];
+end
+%DSSS-BPSK
+t=0:0.01:1; f=2;
+ds_sig=[]; carr_sig=[]; bpsk=[]; for i=1:length(ds)
+if ds(i)==1
+ds_sig=[ds_sig ones(1,length(t))]; bpsk=[bpsk sin(2*pi*f*t)];
+else
+ds_sig=[ds_sig zeros(1,length(t))]; bpsk=[bpsk sin(2*pi*f*t+pi)];
+end
+carr_sig=[carr_sig sin(2*pi*f*t)]; end
+subplot(3,3,3); plot(ds_sig); xlabel('TIME'); ylabel('AMPLITUDE'); title('DSSS SIGNAL'); ylim([-0.5 1.5]);
+pn1 = [];
+for i = 1:length(message)
+if (message(i) == 1)
+pn1 = [pn1 pn];
+else
+pn1 = [pn1 -pn];
+end
+end
+subplot(3,3,4); plot(carr_sig); xlabel('TIME'); ylabel('AMPLITUDE'); title('CARRIER SIGNAL');
+subplot(3,3,5); plot(bpsk); xlabel('TIME'); ylabel('AMPLITUDE');
+title('DSSS-BPSK MODULATED SIGNAL');
+rec_sig=awgn(bpsk,10);
+subplot(3,3,6); plot(rec_sig); xlabel('TIME'); ylabel('AMPLITUDE');
+title('RECIEVED SIGNAL');
+demod=rec_sig.*carr_sig;
+subplot(3,3,7); plot(demod); xlabel('TIME'); ylabel('AMPLITUDE');
+title('DEMODULATED SIGNAL');
+without_error=[]; ds_rec=[]; for i=1:length(ds)
+k=sum(demod((1+(i-1)*length(t)):(i*length(t))));
+if k>0
+without_error=[without_error ones(1,length(t))]; ds_rec=[ds_rec 1];
+else
+without_error=[without_error zeros(1,length(t))]; ds_rec=[ds_rec 0];
+end
+end
+subplot(3,3,8); plot(without_error); xlabel('TIME'); ylabel('AMPLITUDE');
+title('RECIEVED DSSS SIGNAL'); ylim([-0.5 1.5]);
+msg_rec=[]; msg_rec=ds_rec.*PN_seq;
+chan = awgn(pn1, 5);
+z = [];
+for i = 1:7
+pn2 = chan(7*(i-1)+1:7*i);
+z1 = pn2 * pn';
+z = [z, z1];
+end
+for i = 1:length(z)
+if(z(i) < 0)
+z(i) = -1;
+else
+z(i) = 1;
+end
+end
+out = [];
+for i = 1:length(z)
+if z(i) == 1
+out = [out, ones(1,700)];
+else
+out = [out, -ones(1,700)];
+end
+end
+subplot(339);
+plot(t1,out);
+xlabel("time in sec");
+ylabel("amplitude");
+title("Recovered signal");ylim([0 1]);
+figure
+Fs = 100;
+nfft = 2^nextpow2(length(ds_sig));
+Pxx = abs(fft(ds_sig,nfft)).^2/length(ds_sig)/Fs; power_spectrum = dspdata.psd(Pxx(1:length(Pxx)/2),'Fs',Fs); plot(power_spectrum)
